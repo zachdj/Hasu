@@ -1,7 +1,7 @@
 # Hasu
 Reinforcement learning in the StarCraft II environment.
 
-# Installation Notes
+## Installation Notes
 
 You should have the full StarCraft II game installed.  Installation instructions for all platforms can be found 
 [here](https://github.com/deepmind/pysc2#get-starcraft-ii).
@@ -24,11 +24,23 @@ This will create a conda environment named `hasu` with the required dependencies
 
 ### On Windows:
 
-`conda env create -f environment.win.yml`
+`conda env create -f environment.yml`
 
 This will create a conda environment named `hasu` with the required dependencies.  The environment can be activated with
 
 `conda activate hasu`
+
+## Development Notes
+
+Dono where else to put these for now
+
+### Running an agent
+
+`python -m pysc2.bin.agent --map DefeatRoaches --agent hasu.agents.a2c.A2CAgent`
+
+### listing actions
+
+`python -m pysc2.bin.valid_actions`
 
 
 
