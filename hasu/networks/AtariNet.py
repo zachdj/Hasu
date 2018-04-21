@@ -19,7 +19,7 @@ _FC_OUTPUT_SIZE = 256
 
 
 class AtariNet(nn.Module):
-    def __init__(self, minimap_size=(2, 64, 64), screen_size=(5, 84, 84), flat_size=1438):
+    def __init__(self, screen_size=(5, 84, 84), minimap_size=(2, 64, 64), flat_size=1438):
         """ Initialize the network
 
         Args:
