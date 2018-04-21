@@ -2,8 +2,6 @@
 AtariNet network from https://arxiv.org/abs/1708.04782
 """
 
-import numpy as np
-
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
@@ -21,7 +19,7 @@ _FC_OUTPUT_SIZE = 256
 
 
 class AtariNet(nn.Module):
-    def __init__(self, minimap_size=(2, 64, 64), screen_size=(5, 84, 84), flat_size=2775):
+    def __init__(self, minimap_size=(2, 64, 64), screen_size=(5, 84, 84), flat_size=1438):
         """ Initialize the network
 
         Args:
@@ -49,14 +47,6 @@ class AtariNet(nn.Module):
             nn.Linear(flat_size, _STRUCTURED_OUTPUT_SIZE),
             nn.Tanh()
         )
-
-        # self.minimap_conv1 = nn.Conv2d(in_channels=minimap_size[0], out_channels=16, kernel_size=8, stride=4)
-        # self.minimap_conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=4, stride=2)
-        #
-        # self.screen_conv1 = nn.Conv2d(in_channels=screen_size[0], out_channels=16, kernel_size=8, stride=4)
-        # self.screen_conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=4, stride=2)
-
-        # self.flat_fc = nn.Linear(flat_size, _STRUCTURED_OUTPUT_SIZE)
 
         # The output of the above layes are concatenated and sent through a fully connected layer
         # we need to find the size of the concatenated tensor (it will vary based on mm and screen size)
@@ -110,7 +100,7 @@ class AtariNet(nn.Module):
                 self.policy_args_fc[arg.name][dim] = nn.Sequential(
                     nn.Linear(_FC_OUTPUT_SIZE, arg_size),
                     nn.Softmax()
-                )
+                ).cuda()
 
     def forward(self, screen, minimap, flat, available_actions):
         """ Pushes an observation through the network and computes value estimation and a choice of action
@@ -122,22 +112,29 @@ class AtariNet(nn.Module):
             available_actions (ndarray): mask for available actions
 
         Returns:
-            (policy, value) tuple
+            (action, args, value) tuple
 
-            `policy` will be a tuple (function_id, args) where `function_id` contains a distribution over the action space,
-                and `args` is a dictionary containing a distribution over the choices for each dimension of each arg type
-
+            `action` contains a distribution over the action space,
+            `args` is a dictionary with a distribution over valid argument values for each argument,
             `value` will be a scalar estimation of the value of the current state
         """
         # push each input through the network
         screen = self.screen_features(screen)
-        minimap = self.minimap_features(screen)
+        minimap = self.minimap_features(minimap)
         flat = self.flat_features(flat)
 
         flattened_screen = screen.view(1, -1)
         flattened_mm = minimap.view(1, -1)
 
         latent_vector = torch.cat([flat, flattened_screen, flattened_mm], 1)
-        # latent_vector = self.combined_features(latent_vector)
+        features = self.combined_features(latent_vector)
 
-        print(latent_vector.shape)
+        value = self.value_predictor(features)
+        action = self.policy_action(features)
+        policy_args = dict()
+        for arg_name, arg_dict in self.policy_args_fc.items():
+            policy_args[arg_name] = dict()
+            for dim, operator in self.policy_args_fc[arg_name].items():
+                policy_args[arg_name][dim] = operator(features)
+
+        return action, policy_args, value
