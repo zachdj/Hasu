@@ -89,33 +89,37 @@ class Preprocessor(object):
             numpy_feature = screen[feature.index]
             if feature.type == features.FeatureType.SCALAR:
                 # apply log transform to continuous features
-                numpy_feature = np.log(numpy_feature)
-                feature_var = torch.from_numpy(numpy_feature).unsqueeze(0)
+                numpy_feature = np.log(numpy_feature + 1)
+                numpy_feature = numpy_feature[None, :, :]  # add channel dimension ( 1 x W x H )
+                tensor = torch.from_numpy(numpy_feature).unsqueeze(0).float()  # add minibatch dimension
+                feature_var = Variable(tensor)
             else:
                 # apply continuous embedding to categorical features
-                feature_var = torch.from_numpy(numpy_feature).unsqueeze(0)  # 1 x 1 x W x H (categorical)
-                one_hot = make_one_hot(feature_var, feature.size)  # 1 x size x W x H
+                one_hot = onehot_encode(numpy_feature, feature.scale)  # scale x W x H
+                feature_var = Variable(torch.from_numpy(one_hot).unsqueeze(0).float())  # 1 x scale x W x H (one_hot)
                 embedding = self.embeddings['screen'][feature.name]
-                feature_var = embedding(one_hot)  # 1 x 1 x W x H (continuous)
+                feature_var = embedding(feature_var)  # 1 x 1 x W x H (continuous)
             screen_feats.append(feature_var)
 
         screen_features = torch.cat(screen_feats, dim=1)
 
-        # select and process minimap features
+        # select and process desired minimap features
         minimap = observation['minimap']
         mm_feats = []
         for feature in self.minimap_features:
             numpy_feature = minimap[feature.index]
             if feature.type == features.FeatureType.SCALAR:
                 # apply log transform to continuous features
-                numpy_feature = np.log(numpy_feature)
-                feature_var = torch.from_numpy(numpy_feature).unsqueeze(0)
+                numpy_feature = np.log(numpy_feature + 1)
+                numpy_feature = numpy_feature[None, :, :]  # add channel dimension ( 1 x W x H )
+                tensor = torch.from_numpy(numpy_feature).unsqueeze(0).float()  # add minibatch dimension
+                feature_var = Variable(tensor)
             else:
                 # apply continuous embedding to categorical features
-                feature_var = torch.from_numpy(numpy_feature).unsqueeze(0)  # 1 x 1 x W x H (categorical)
-                one_hot = make_one_hot(feature_var, feature.size)  # 1 x size x W x H
+                one_hot = onehot_encode(numpy_feature, feature.scale)  # scale x W x H
+                feature_var = Variable(torch.from_numpy(one_hot).unsqueeze(0).float())  # 1 x scale x W x H (one_hot)
                 embedding = self.embeddings['minimap'][feature.name]
-                feature_var = embedding(one_hot)  # 1 x 1 x W x H (continuous)
+                feature_var = embedding(feature_var)  # 1 x 1 x W x H (continuous)
             mm_feats.append(feature_var)
 
         minimap_features = torch.cat(mm_feats, dim=1)
@@ -128,7 +132,7 @@ class Preprocessor(object):
             feature_vector = np.pad(observed, (0, max_feature_size - len(observed)), mode='constant')
             flat_features = np.append(flat_features, feature_vector)
 
-        flat_features = torch.from_numpy(flat_features).unsqueeze(0)
+        flat_features = torch.from_numpy(flat_features).unsqueeze(0)  # 1 x F
 
         # create mask of available actions
         TOTAL_ACTIONS = len(actions.FUNCTIONS)
@@ -136,7 +140,7 @@ class Preprocessor(object):
         available_actions[observation['available_actions']] = 1
         available_actions = torch.from_numpy(available_actions)
 
-        return minimap_features, screen_features, flat_features, available_actions
+        return screen_features, minimap_features, flat_features, available_actions
 
     def get_flat_size(self):
         """ Computes the size of the flat feature vector
@@ -154,26 +158,21 @@ class Preprocessor(object):
         return size
 
 
-# souce: https://gist.github.com/jacobkimmel/4ccdc682a45662e514997f724297f39f
-def make_one_hot(labels, C=2):
+def onehot_encode(a, scale):
+    """ One-hot encodes a 2d numpy array
+
+    Source: https://stackoverflow.com/questions/36960320/convert-a-2d-matrix-to-a-3d-one-hot-matrix-numpy
+
+    Args:
+        a: the array to encode
+        scale: the number of unique values
+
+    Returns:
+        ndarray: one-hot encoded vector with shape C x W x H
+
     """
-    Converts an integer label torch.autograd.Variable to a one-hot Variable.
-
-    Parameters
-    ----------
-    labels : torch.autograd.Variable of torch.cuda.LongTensor
-        N x 1 x H x W, where N is batch size.
-        Each value is an integer representing correct classification.
-    C : integer.
-        number of classes in labels.
-
-    Returns
-    -------
-    target : torch.autograd.Variable of torch.cuda.FloatTensor
-        N x C x H x W, where C is class number. One-hot encoded.
-    """
-    one_hot = torch.cuda.FloatTensor(labels.size(0), C, labels.size(2), labels.size(3)).zero_()
-    target = one_hot.scatter_(1, labels.data, 1)
-
-    target = Variable(target)
-    return target
+    one_hot = np.zeros((a.size, scale), dtype=np.uint8)
+    one_hot[np.arange(a.size), a.ravel()] = 1  # encode the feature in the third dimension
+    one_hot.shape = a.shape + (scale,)  # reshape to W x H x C
+    one_hot = np.transpose(one_hot, [2, 0, 1])  # reorder to C x W x H
+    return one_hot
