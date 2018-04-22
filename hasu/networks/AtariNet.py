@@ -79,6 +79,7 @@ class AtariNet(nn.Module):
 
         """
         Linear Layers that compute independent distributions over each function argument
+        
         Explanation: each function call takes some number of arguments.  Each of the arguments is one of the 13 types
         defined in pysc2.lib.actions.TYPES
         Each arg has one or more dimensions, and each dimension has some "size" specifying the number of choices for 
@@ -87,10 +88,10 @@ class AtariNet(nn.Module):
         each of which take a value in the range [0, screen_size)
         
         We create a linear layer for each dimension of each argument type, with hidden units == <size>
+        
+        We add each linear layer as a child module.  The child module is accessible by its name using getattr(self, names)
         """
-        self.policy_args_fc = dict()
         for arg in actions.TYPES:
-            self.policy_args_fc[arg.name] = dict()
             for dim, size in enumerate(arg.sizes):
                 if arg.name == 'screen' or arg.name == 'screen2':
                     arg_size = screen_size[1]
@@ -99,13 +100,11 @@ class AtariNet(nn.Module):
                 else:
                     arg_size = size
 
-                dimension_layer = nn.Sequential(
+                module_name = "arg_%s_dim%s" % (arg.name, dim)
+                self.add_module(module_name, nn.Sequential(
                     nn.Linear(_FC_OUTPUT_SIZE, arg_size),
                     nn.Softmax()
-                )
-                if use_gpu:
-                    dimension_layer = dimension_layer.cuda()
-                self.policy_args_fc[arg.name][dim] = dimension_layer
+                ))
 
     def forward(self, screen, minimap, flat, available_actions):
         """ Pushes an observation through the network and computes value estimation and a choice of action
@@ -136,10 +135,12 @@ class AtariNet(nn.Module):
 
         value = self.value_predictor(features)
         action = self.policy_action(features)
+
         policy_args = dict()
-        for arg_name, arg_dict in self.policy_args_fc.items():
-            policy_args[arg_name] = dict()
-            for dim, operator in self.policy_args_fc[arg_name].items():
-                policy_args[arg_name][dim] = operator(features)
+        for arg in actions.TYPES:
+            for dim, size in enumerate(arg.sizes):
+                module_name = "arg_%s_dim%s" % (arg.name, dim)
+                operator = getattr(self, module_name)
+                policy_args[module_name] = operator(features)
 
         return action, policy_args, value
