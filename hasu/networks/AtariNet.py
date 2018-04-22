@@ -100,7 +100,7 @@ class AtariNet(nn.Module):
                 else:
                     arg_size = size
 
-                module_name = "arg_%s_dim%s" % (arg.name, dim)
+                module_name = self.get_argument_module_name(arg, dim)
                 self.add_module(module_name, nn.Sequential(
                     nn.Linear(_FC_OUTPUT_SIZE, arg_size),
                     nn.Softmax()
@@ -139,8 +139,13 @@ class AtariNet(nn.Module):
         policy_args = dict()
         for arg in actions.TYPES:
             for dim, size in enumerate(arg.sizes):
-                module_name = "arg_%s_dim%s" % (arg.name, dim)
+                module_name = self.get_argument_module_name(arg, dim)
                 operator = getattr(self, module_name)
                 policy_args[module_name] = operator(features)
 
         return action, policy_args, value
+
+    @staticmethod
+    def get_argument_module_name(arg, dim):
+        """ Generates a unique name for the module that picks a value for the nth dimension of the given argument """
+        return "arg_%s_dim%s" % (arg.name, dim)

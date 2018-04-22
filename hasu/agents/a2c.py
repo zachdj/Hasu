@@ -6,6 +6,8 @@ Learns to play starcraft minigames using Synchronous Advantage Actor-Critic (A2C
 
 import time
 
+import numpy as np
+
 from pysc2.agents import base_agent
 from pysc2.lib import actions
 from pysc2.lib import features
@@ -70,18 +72,37 @@ class A2CAgent(base_agent.BaseAgent):
 
         """
         super(A2CAgent, self).step(obs)
-
-        start = time.time()
+        start_time = time.time()
 
         screen, minimap, flat, available_actions = self.preprocessor.process(obs.observation)
-
         preproc_time = time.time()
 
         action, policy_args, value = self.network(screen, minimap, flat, available_actions)
-
         network_time = time.time()
 
-        print("preprocess time: %0.6f s" % (preproc_time - start))
-        print("network time: %0.6f s" % (network_time - preproc_time))
+        action_mask = available_actions.data.cpu().numpy()  # array with ones for available actions and zeros otherwise
+        action_distribution = action.data.cpu().numpy()[0]
+        action_distribution = action_distribution * action_mask  # set probability of invalid actions to zero
+        action_distribution = action_distribution / np.sum(action_distribution)  # renormalize
 
-        return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
+        # select an action id from the distribution returned from the network
+        action_id = np.random.choice(np.arange(len(action_distribution)), p=action_distribution)
+        print("\nChose action %s\n" % action_id)
+
+        # select arguments from the argument outputs
+        args = []
+        for arg in actions.FUNCTIONS[action_id].args:
+            selected_values = np.zeros(len(arg.sizes), dtype=np.int)  # value can have multiple dimensions
+            for dim, size in enumerate(arg.sizes):
+                arg_module = AtariNet.get_argument_module_name(arg, dim)
+                arg_dist = policy_args[arg_module].data.cpu().numpy()
+                selected_val = np.argmax(arg_dist)
+                selected_values[dim] = selected_val
+            args.append(selected_values)
+        print("\nChose args: %s\n" % args)
+
+        # print("preprocess time: %0.6f s" % (preproc_time - start_time))
+        # print("network time: %0.6f s" % (network_time - preproc_time))
+
+        # return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
+        return actions.FunctionCall(action_id, args)
