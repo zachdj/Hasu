@@ -19,13 +19,14 @@ _FC_OUTPUT_SIZE = 256
 
 
 class AtariNet(nn.Module):
-    def __init__(self, screen_size=(5, 84, 84), minimap_size=(2, 64, 64), flat_size=1438):
+    def __init__(self, screen_size=(5, 84, 84), minimap_size=(2, 64, 64), flat_size=1438, use_gpu=True):
         """ Initialize the network
 
         Args:
             minimap_size (tuple): 3-tuple (channels, width, height) specifying the size of the minimap input
             screen_size (tuple): 3-tuple (channels, width, height) specifying the size of the screen input
             flat_size (int): size of the structured features vector
+            use_gpu (bool): if set, computations will be performed on the current cuda device
         """
         super().__init__()
 
@@ -97,10 +98,14 @@ class AtariNet(nn.Module):
                     arg_size = minimap_size[1]
                 else:
                     arg_size = size
-                self.policy_args_fc[arg.name][dim] = nn.Sequential(
+
+                dimension_layer = nn.Sequential(
                     nn.Linear(_FC_OUTPUT_SIZE, arg_size),
                     nn.Softmax()
-                ).cuda()
+                )
+                if use_gpu:
+                    dimension_layer = dimension_layer.cuda()
+                self.policy_args_fc[arg.name][dim] = dimension_layer
 
     def forward(self, screen, minimap, flat, available_actions):
         """ Pushes an observation through the network and computes value estimation and a choice of action

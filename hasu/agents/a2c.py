@@ -41,20 +41,23 @@ DEFAULT_FLAT_FEATURES = [
 class A2CAgent(base_agent.BaseAgent):
 
     def __init__(self, screen_features=DEFAULT_SCREEN_FEATURES, minimap_features=DEFAULT_MINIMAP_FEATURES,
-                 flat_features=DEFAULT_FLAT_FEATURES, screen_size=84, minimap_size=64):
+                 flat_features=DEFAULT_FLAT_FEATURES, screen_size=84, minimap_size=64, use_gpu=True):
         super().__init__()
         self.screen_features = screen_features
         self.minimap_features = minimap_features
         self.flat_features = flat_features
+        self.use_gpu = use_gpu
 
         screen_size = (len(screen_features), screen_size, screen_size)
         mm_size = (len(minimap_features), minimap_size, minimap_size)
 
-        self.preprocessor = Preprocessor(self.screen_features, self.minimap_features, self.flat_features)
+        self.preprocessor = Preprocessor(self.screen_features, self.minimap_features, self.flat_features, use_gpu=use_gpu)
 
         flat_size = self.preprocessor.get_flat_size()
 
-        self.network = AtariNet(screen_size=screen_size, minimap_size=mm_size, flat_size=flat_size).cuda()
+        self.network = AtariNet(screen_size=screen_size, minimap_size=mm_size, flat_size=flat_size)
+        if use_gpu:
+            self.network = self.network.cuda()
 
     def step(self, obs):
         """ Takes an observation from the environment and returns an action to perform
@@ -72,8 +75,13 @@ class A2CAgent(base_agent.BaseAgent):
 
         screen, minimap, flat, available_actions = self.preprocessor.process(obs.observation)
 
-        elapsed = time.time() - start
+        preproc_time = time.time()
 
-        print("preprocess time: %0.6f s" % elapsed)
+        action, policy_args, value = self.network(screen, minimap, flat, available_actions)
+
+        network_time = time.time()
+
+        print("preprocess time: %0.6f s" % (preproc_time - start))
+        print("network time: %0.6f s" % (network_time - preproc_time))
 
         return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
