@@ -19,7 +19,7 @@ _FC_OUTPUT_SIZE = 256
 
 
 class AtariNet(nn.Module):
-    def __init__(self, screen_size=(5, 84, 84), minimap_size=(2, 64, 64), flat_size=1438, use_gpu=True):
+    def __init__(self, screen_size=(5, 84, 84), minimap_size=(2, 64, 64), flat_size=1438, num_actions=524):
         """ Initialize the network
 
         Args:
@@ -73,7 +73,7 @@ class AtariNet(nn.Module):
 
         # Linear Layer that computes a distribution over the action space
         self.policy_action = nn.Sequential(
-            nn.Linear(_FC_OUTPUT_SIZE, 524),  # there are 524 available action functions
+            nn.Linear(_FC_OUTPUT_SIZE, num_actions),
             nn.Softmax()
         )
 

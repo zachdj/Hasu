@@ -39,15 +39,33 @@ DEFAULT_FLAT_FEATURES = [
     "control_groups"    # (10, 2) tensor showing the (unit leader type and count) for each of the 10 control groups
 ]
 
+# actions that we allow our agent to consider
+DEFAULT_ACTION_SPACE_IDS = np.concatenate([
+    np.arange(0, 39),  # attack, move, behavior actions
+    [261],  # halt  (but don't catch fire)
+    [274],  # hold position
+    np.arange(331, 335),  # move screen, move minimap, and patrolling
+], axis=0)
+DEFAULT_ACTION_SPACE = [actions.FUNCTIONS[idx] for idx in DEFAULT_ACTION_SPACE_IDS]
+
 
 class A2CAgent(base_agent.BaseAgent):
 
-    def __init__(self, screen_features=DEFAULT_SCREEN_FEATURES, minimap_features=DEFAULT_MINIMAP_FEATURES,
-                 flat_features=DEFAULT_FLAT_FEATURES, screen_size=84, minimap_size=64, use_gpu=True):
+    def __init__(self,
+                 screen_features=DEFAULT_SCREEN_FEATURES,
+                 minimap_features=DEFAULT_MINIMAP_FEATURES,
+                 flat_features=DEFAULT_FLAT_FEATURES,
+                 action_space=DEFAULT_ACTION_SPACE,
+                 screen_size=84,
+                 minimap_size=64,
+                 use_gpu=True ):
+
         super().__init__()
         self.screen_features = screen_features
         self.minimap_features = minimap_features
         self.flat_features = flat_features
+        self.action_space = action_space
+        self.action_space_ids = [action.id for action in action_space]
         self.use_gpu = use_gpu
 
         screen_size = (len(screen_features), screen_size, screen_size)
@@ -57,7 +75,8 @@ class A2CAgent(base_agent.BaseAgent):
 
         flat_size = self.preprocessor.get_flat_size()
 
-        self.network = AtariNet(screen_size=screen_size, minimap_size=mm_size, flat_size=flat_size)
+        self.network = AtariNet(screen_size=screen_size, minimap_size=mm_size,
+                                flat_size=flat_size, num_actions=len(self.action_space))
         if use_gpu:
             self.network = self.network.cuda()
 
@@ -81,12 +100,14 @@ class A2CAgent(base_agent.BaseAgent):
         network_time = time.time()
 
         action_mask = available_actions.data.cpu().numpy()  # array with ones for available actions and zeros otherwise
+        action_mask = action_mask[self.action_space_ids]  # mask for our agent's action space
         action_distribution = action.data.cpu().numpy()[0]
         action_distribution = action_distribution * action_mask  # set probability of invalid actions to zero
         action_distribution = action_distribution / np.sum(action_distribution)  # renormalize
 
         # select an action id from the distribution returned from the network
-        action_id = np.random.choice(np.arange(len(action_distribution)), p=action_distribution)
+        action_idx = np.random.choice(np.arange(len(action_distribution)), p=action_distribution)
+        action_id = self.action_space[action_idx].id
         print("\nChose action %s\n" % action_id)
 
         # select arguments from the argument outputs
