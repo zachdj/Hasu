@@ -120,7 +120,7 @@ class Preprocessor(object):
         TOTAL_ACTIONS = len(actions.FUNCTIONS)
         available_actions = np.zeros(TOTAL_ACTIONS, dtype=np.float32)
         available_actions[observation['available_actions']] = 1
-        action_tensor = torch.from_numpy(available_actions)
+        action_tensor = torch.from_numpy(available_actions).float()
         if self.use_gpu:
             action_tensor = action_tensor.cuda()
         available_actions = Variable(action_tensor)
