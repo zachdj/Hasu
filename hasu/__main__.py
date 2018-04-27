@@ -10,22 +10,10 @@ from hasu.networks.AtariNet import AtariNet
 
 network = AtariNet()
 
-for name, child in network.named_children():
-    print(name)
-
-# for arg in actions.TYPES:
-#     print(arg.name)
-#     for dim, size in enumerate(arg.sizes):
-#         print(dim)
-#         print(size)
-
-# scale = 3
-# numpy_feature = np.array([
-#     [5, 1, 2],
-#     [1, 2, 0],
-#     [1, 1, 1],
-# ])
-#
-# numpy_feature = numpy_feature[None, :, :]
-#
-# print(numpy_feature[:, 0, 0])
+ACTION_SPACE_INDICES = np.concatenate([
+    np.arange(0, 39),  # attack, move, behavior actions
+    [261],  # halt  (but don't catch fire)
+    [274],  # hold position
+    np.arange(331, 335),  # move screen, move minimap, and patrolling
+], axis=0)
+print(ACTION_SPACE_INDICES)

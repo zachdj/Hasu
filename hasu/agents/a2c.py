@@ -18,81 +18,43 @@ from pysc2.lib import features
 
 import torch
 from torch.autograd import Variable
+import torch.optim as optim
 
 from hasu.utils import constants
 from hasu.networks.AtariNet import AtariNet
 from hasu.utils.preprocess import Preprocessor
 
-# define the default features that this agent uses
-# these are documented at https://github.com/deepmind/pysc2/blob/master/docs/environment.md
-DEFAULT_SCREEN_FEATURES = [
-    features.SCREEN_FEATURES.player_relative,
-    features.SCREEN_FEATURES.unit_type,
-    features.SCREEN_FEATURES.selected,
-    features.SCREEN_FEATURES.unit_hit_points,
-    features.SCREEN_FEATURES.unit_hit_points_ratio,
-    features.SCREEN_FEATURES.unit_density,
-]
 
-DEFAULT_MINIMAP_FEATURES = [
-    features.MINIMAP_FEATURES.player_relative,
-    features.MINIMAP_FEATURES.selected
-]
-
-DEFAULT_FLAT_FEATURES = [
-    "player",           # A (11) tensor showing general information.
-    "single_select",    # A (7) tensor showing information about a selected unit.
-    "multi_select",     # (n, 7) tensor with the same as single select but for all n selected units
-    "control_groups"    # (10, 2) tensor showing the (unit leader type and count) for each of the 10 control groups
-]
-
-# actions that we allow our agent to consider
-DEFAULT_ACTION_SPACE = np.zeros(524)
-allowed_actions = np.concatenate([
-    np.arange(0, 39),  # attack, move, behavior actions
-    [261],  # halt  (but don't catch fire)
-    [274],  # hold position
-    np.arange(331, 335),  # move screen, move minimap, and patrolling
-], axis=0)
-DEFAULT_ACTION_SPACE[allowed_actions] = 1
+_DEFAULT_NETWORK = AtariNet()
+_DEFAULT_PREPROCESSOR = Preprocessor(features.SCREEN_FEATURES, features.MINIMAP_FEATURES,
+                                     ["player", "single_select", "multi_select", "control_groups"], use_gpu=True)
 
 
 class A2CAgent(base_agent.BaseAgent):
-
     def __init__(self,
-                 screen_features=DEFAULT_SCREEN_FEATURES,
-                 minimap_features=DEFAULT_MINIMAP_FEATURES,
-                 flat_features=DEFAULT_FLAT_FEATURES,
-                 action_space=DEFAULT_ACTION_SPACE,  # binary mask of length 524
-                 screen_size=84,
-                 minimap_size=64,
+                 network=_DEFAULT_NETWORK,
+                 preprocessor=_DEFAULT_PREPROCESSOR,
+                 action_space=np.ones(524),  # binary mask of length 524
                  gamma=0.99,  # discount factor for future rewards
                  value_loss_weight=0.5,
                  entropy_weight=1e-3,
-                 learning_rate=7e-4,
                  use_gpu=True):
 
         super().__init__()
-        self.screen_features = screen_features
-        self.minimap_features = minimap_features
-        self.flat_features = flat_features
+        self.preprocessor = preprocessor
+        self.network = network
+
+        # actions that our agent is allowed to select
         self.action_space = action_space
         self.action_space_variable = Variable(torch.from_numpy(self.action_space).float())
+
+        # hyperparams
         self.gamma = gamma
         self.value_loss_weight = value_loss_weight
         self.entropy_weight = entropy_weight
-        self.learning_rate = learning_rate
+
+        # perform computations on the GPU?
         self.use_gpu = use_gpu
-
-        screen_size = (len(screen_features), screen_size, screen_size)
-        mm_size = (len(minimap_features), minimap_size, minimap_size)
-
-        self.preprocessor = Preprocessor(self.screen_features, self.minimap_features, self.flat_features, use_gpu=use_gpu)
-
-        flat_size = self.preprocessor.get_flat_size()
-
-        self.network = AtariNet(screen_size=screen_size, minimap_size=mm_size,
-                                flat_size=flat_size, num_actions=524)
         if use_gpu:
             self.network = self.network.cuda()
             self.action_space_variable = self.action_space_variable.cuda()
@@ -108,13 +70,10 @@ class A2CAgent(base_agent.BaseAgent):
 
         """
         super(A2CAgent, self).step(obs)
-        start_time = time.time()
 
         screen, minimap, flat, available_actions = self.preprocessor.process(obs.observation)
-        preproc_time = time.time()
 
         policy_action, policy_args, value = self.network(screen, minimap, flat, available_actions)
-        network_time = time.time()
 
         # select an action according to the policy probabilities
         # mask unavailable actions and actions that aren't in our agent's action space
@@ -123,8 +82,8 @@ class A2CAgent(base_agent.BaseAgent):
 
         np_action_distribution = action_distribution.data.cpu().numpy()[0]
         selected_action_id = np.random.choice(np.arange(0, len(actions.FUNCTIONS)), p=np_action_distribution)
-        print("\nChose action %s" % selected_action_id)
-        print("with probability:  %s\n" % np_action_distribution[selected_action_id])
+        # print("\nChose action %s" % selected_action_id)
+        # print("with probability:  %s\n" % np_action_distribution[selected_action_id])
 
         # select arguments from the argument outputs
         args = []
@@ -142,20 +101,22 @@ class A2CAgent(base_agent.BaseAgent):
                 arg_distributions[arg_module_name] = policy_args[arg_module_name]
             # add the argument to the list of args passed to pysc2
             args.append(selected_values)
-        print("\nChose args: %s\n" % args)
+        # print("\nChose args: %s\n" % args)
 
-        # print("preprocess time: %0.6f s" % (preproc_time - start_time))
-        # print("network time: %0.6f s" % (network_time - preproc_time))
+        # action_mask_rollout = [available_actions]
+        # policy_rollout = [(policy_action, policy_args, selected_action_id, args)]
+        # value_estimation_rollout = [value]
+        # reward_rollout = [np.float(obs.reward), 10.]
+        #
+        # loss = self.compute_loss(action_mask_rollout, policy_rollout, value_estimation_rollout, reward_rollout)
+        #
+        # # zero gradient buffers
+        # self.network.zero_grad()
+        # # backprop
+        # loss.backward()
+        # # update weights
+        # self.optimizer.step()
 
-        action_mask_rollout = [available_actions]
-        policy_rollout = [(policy_action, policy_args, selected_action_id, args)]
-        value_estimation_rollout = [value]
-        reward_rollout = [np.float(obs.reward), 10.]
-
-        loss = self.compute_loss(action_mask_rollout, policy_rollout, value_estimation_rollout, reward_rollout)
-        print("\n\n Loss: %s \n\n" % loss)
-
-        # return actions.FunctionCall(actions.FUNCTIONS.no_op.id, [])
         return actions.FunctionCall(selected_action_id, args)
 
     def compute_loss(self, action_mask_rollout, policy_rollout, value_estimate_rollout, rewards):
