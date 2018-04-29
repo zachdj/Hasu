@@ -7,9 +7,6 @@ References:
     [1] Schulman, John, et al. "High-dimensional continuous control using generalized advantage estimation."
         arXiv preprint arXiv:1506.02438 (2015).
 """
-
-import time
-
 import numpy as np
 
 from pysc2.agents import base_agent
@@ -18,9 +15,7 @@ from pysc2.lib import features
 
 import torch
 from torch.autograd import Variable
-import torch.optim as optim
 
-from hasu.utils import constants
 from hasu.networks.AtariNet import AtariNet
 from hasu.utils.preprocess import Preprocessor
 
@@ -94,8 +89,6 @@ class A2CAgent(base_agent.BaseAgent):
 
         np_action_distribution = action_distribution.data.cpu().numpy()[0]
         selected_action_id = np.random.choice(np.arange(0, len(actions.FUNCTIONS)), p=np_action_distribution)
-        # print("\nChose action %s" % selected_action_id)
-        # print("with probability:  %s\n" % np_action_distribution[selected_action_id])
 
         # select arguments from the argument outputs
         args = []
@@ -113,28 +106,12 @@ class A2CAgent(base_agent.BaseAgent):
                 arg_distributions[arg_module_name] = policy_args[arg_module_name]
             # add the argument to the list of args passed to pysc2
             args.append(selected_values)
-        # print("\nChose args: %s\n" % args)
 
         # keep track of rollout
         self.rollout['action_mask'].append(available_actions)
         self.rollout['policy'].append((policy_action, policy_args, selected_action_id, args))
         self.rollout['value'].append(value)
         self.rollout['reward'].append(np.float(obs.reward))
-
-
-        # action_mask_rollout = [available_actions]
-        # policy_rollout = [(policy_action, policy_args, selected_action_id, args)]
-        # value_estimation_rollout = [value]
-        # reward_rollout = [np.float(obs.reward), 10.]
-        #
-        # loss = self.compute_loss(action_mask_rollout, policy_rollout, value_estimation_rollout, reward_rollout)
-        #
-        # # zero gradient buffers
-        # self.network.zero_grad()
-        # # backprop
-        # loss.backward()
-        # # update weights
-        # self.optimizer.step()
 
         return actions.FunctionCall(selected_action_id, args)
 
