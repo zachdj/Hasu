@@ -17,6 +17,8 @@ import torch.optim as optim
 
 _MAP_NAME = "DefeatRoaches"
 
+
+# TODO: default these to the entire observation space
 DEFAULT_SCREEN_FEATURES = [
     features.SCREEN_FEATURES.player_relative,
     features.SCREEN_FEATURES.unit_type,
@@ -38,6 +40,8 @@ DEFAULT_FLAT_FEATURES = [
     "control_groups"    # (10, 2) tensor showing the (unit leader type and count) for each of the 10 control groups
 ]
 
+
+# TODO: default this to the entire action space
 # actions that we allow our agent to consider
 DEFAULT_ACTION_SPACE = np.zeros(524)
 allowed_actions = np.concatenate([
@@ -49,8 +53,8 @@ allowed_actions = np.concatenate([
 DEFAULT_ACTION_SPACE[allowed_actions] = 1
 
 
-def main(num_envs=1, step_mul=8, max_steps=1600, rollout_steps=16, network_class=AtariNet, use_gpu=True,
-         screen_resolution=84, minimap_resolution=64, output_directory='../output',
+def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_interval=50000, output_directory='../output',
+         network_class=AtariNet, screen_resolution=84, minimap_resolution=64, use_gpu=True,
          gamma=0.99,                # discount factor for future rewards
          value_loss_weight=0.5,     # how much weight should the value loss carry?
          entropy_weight=1e-3,       # how much weight to assign to the entropy loss (higher weight => more exploration)
@@ -91,7 +95,7 @@ def main(num_envs=1, step_mul=8, max_steps=1600, rollout_steps=16, network_class
               game_steps_per_episode=0,
               screen_size_px=(screen_resolution, screen_resolution),
               minimap_size_px=(minimap_resolution, minimap_resolution),
-              visualize=True)
+              visualize=False)
         environments.append(env)
         observations.append(env.reset()[0])
         rollout = {
@@ -143,15 +147,23 @@ def main(num_envs=1, step_mul=8, max_steps=1600, rollout_steps=16, network_class
         network.zero_grad()  # clear gradient buffers
         optimizer.step()  # update weights
 
-        # save the network every 50000 steps
-        if (step_counter - last_checkpoint) > 50000:
+        # save the network every checkpoint_interval steps
+        if (step_counter - last_checkpoint) > checkpoint_interval:
             if not os.path.exists(output_directory):
                 os.makedirs(output_directory)
             output_path = os.path.join(output_directory, 'a2c_step%s.network' % step_counter)
             torch.save(network.state_dict(), output_path)
             last_checkpoint = step_counter
 
+            print("Saved checkpoint at %s steps" % step_counter)
+            average_reward = 0
+            for i in range(0, num_envs):
+                average_reward += (agent.reward / agent.episodes)
+            average_reward /= num_envs
+            print("Average reward: %0.4f" % average_reward)
 
+    for i in range(0, num_envs):
+        environments[i].close()
 
 
 if __name__ == '__main__':
