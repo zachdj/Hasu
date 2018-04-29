@@ -123,8 +123,6 @@ def main(num_envs=1, step_mul=8, max_steps=1600, rollout_steps=16, network_class
 
                 if observations[i].step_type == sc2_env.environment.StepType.LAST:
                     episode_ended = True
-                    # print("END!!")
-                    # print(agent.reward / agent.episodes)
                     break
 
             # compute and backprop the loss
@@ -145,13 +143,15 @@ def main(num_envs=1, step_mul=8, max_steps=1600, rollout_steps=16, network_class
         network.zero_grad()  # clear gradient buffers
         optimizer.step()  # update weights
 
-        # save the network every 500000 steps
-        if (step_counter - last_checkpoint) > 500:
+        # save the network every 50000 steps
+        if (step_counter - last_checkpoint) > 50000:
             if not os.path.exists(output_directory):
                 os.makedirs(output_directory)
-            output_path = os.path.join(output_directory, 'network_step%s.weights' % step_counter)
+            output_path = os.path.join(output_directory, 'a2c_step%s.network' % step_counter)
             torch.save(network.state_dict(), output_path)
             last_checkpoint = step_counter
+
+
 
 
 if __name__ == '__main__':
