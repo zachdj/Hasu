@@ -115,7 +115,7 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
     step_counter = 0
     last_checkpoint = 0
     while step_counter < max_steps:
-        step_counter += rollout_steps * num_envss
+        step_counter += rollout_steps * num_envs
 
         # rollout each agent
         for i in range(0, num_envs):
