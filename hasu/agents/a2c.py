@@ -53,11 +53,23 @@ class A2CAgent(base_agent.BaseAgent):
         self.value_loss_weight = value_loss_weight
         self.entropy_weight = entropy_weight
 
+        # keep track of rollouts
+        self.rollout = {
+            'action_mask': [],
+            'policy': [],
+            'value': [],
+            'reward': []
+        }
+
         # perform computations on the GPU?
         self.use_gpu = use_gpu
         if use_gpu:
             self.network = self.network.cuda()
             self.action_space_variable = self.action_space_variable.cuda()
+
+    def reset(self):
+        super(A2CAgent, self).reset()
+        self.clear_rollout()
 
     def step(self, obs):
         """ Takes an observation from the environment and returns an action to perform
@@ -103,6 +115,13 @@ class A2CAgent(base_agent.BaseAgent):
             args.append(selected_values)
         # print("\nChose args: %s\n" % args)
 
+        # keep track of rollout
+        self.rollout['action_mask'].append(available_actions)
+        self.rollout['policy'].append((policy_action, policy_args, selected_action_id, args))
+        self.rollout['value'].append(value)
+        self.rollout['reward'].append(np.float(obs.reward))
+
+
         # action_mask_rollout = [available_actions]
         # policy_rollout = [(policy_action, policy_args, selected_action_id, args)]
         # value_estimation_rollout = [value]
@@ -119,23 +138,33 @@ class A2CAgent(base_agent.BaseAgent):
 
         return actions.FunctionCall(selected_action_id, args)
 
-    def compute_loss(self, action_mask_rollout, policy_rollout, value_estimate_rollout, rewards):
+    def compute_loss(self):
         """ Computes loss function used for backprop from a rollout sequence
 
         Uses advantage estimate from [1].
         Influenced by https://github.com/ikostrikov/pytorch-a3c and
         https://github.com/Jiankai-Sun/Asynchronous-Advantage-Actor-Critic-in-PyTorch
 
-        Args:
+        Uses the rollout accumulated by the last several calls to the step function:
             action_mask_rollout: sequence of n `available_action` masks
             policy_rollout: sequence of n tuples (action_probs, argument_probabilities, selected_action_id, selected_args)
             value_estimate_rollout: sequence n of estimated values
-            rewards: sequence of n+1 rewards received from the env
+            rewards: sequence of n rewards received from the env
 
         Returns:
-            torch.autograd.Variable containing the loss from the sequence
+            torch.autograd.Variable containing the loss from the sequence,
+            or None if loss cannot be computed from the current rollout
 
         """
+        action_mask_rollout = self.rollout['action_mask'][:-1]
+        policy_rollout = self.rollout['policy'][:-1]
+        value_estimate_rollout = self.rollout['value'][:-1]
+        rewards = self.rollout['reward']
+
+        # handle edge case where rollouts were collected for only one step:
+        if len(policy_rollout) == 0:
+            return None
+
         policy_loss = 0
         value_loss = 0
         gae = torch.zeros(1, 1)
@@ -177,3 +206,11 @@ class A2CAgent(base_agent.BaseAgent):
             policy_loss = policy_loss - action_log_prob * Variable(gae) - self.entropy_weight * entropy
 
         return self.value_loss_weight * value_loss + policy_loss
+
+    def clear_rollout(self):
+        self.rollout = {
+            'action_mask': [],
+            'policy': [],
+            'value': [],
+            'reward': []
+        }

@@ -2,6 +2,7 @@
 The training script runs several agents in parallel, each of which update a shared neural network
 """
 
+import os
 import numpy as np
 
 from hasu.networks.AtariNet import AtariNet
@@ -9,9 +10,9 @@ from hasu.utils.preprocess import Preprocessor
 from hasu.agents.a2c import A2CAgent
 
 from pysc2.lib import features
-from pysc2.lib import actions
 from pysc2.env import sc2_env
 
+import torch
 import torch.optim as optim
 
 _MAP_NAME = "DefeatRoaches"
@@ -48,8 +49,8 @@ allowed_actions = np.concatenate([
 DEFAULT_ACTION_SPACE[allowed_actions] = 1
 
 
-def main(num_envs=1, step_mul=8, max_steps=160, rollout_steps=16, network_class=AtariNet, use_gpu=True,
-         screen_resolution=84, minimap_resolution=64,
+def main(num_envs=1, step_mul=8, max_steps=1600, rollout_steps=16, network_class=AtariNet, use_gpu=True,
+         screen_resolution=84, minimap_resolution=64, output_directory='../output',
          gamma=0.99,                # discount factor for future rewards
          value_loss_weight=0.5,     # how much weight should the value loss carry?
          entropy_weight=1e-3,       # how much weight to assign to the entropy loss (higher weight => more exploration)
@@ -90,7 +91,7 @@ def main(num_envs=1, step_mul=8, max_steps=160, rollout_steps=16, network_class=
               game_steps_per_episode=0,
               screen_size_px=(screen_resolution, screen_resolution),
               minimap_size_px=(minimap_resolution, minimap_resolution),
-              visualize=False)
+              visualize=True)
         environments.append(env)
         observations.append(env.reset()[0])
         rollout = {
@@ -103,21 +104,54 @@ def main(num_envs=1, step_mul=8, max_steps=160, rollout_steps=16, network_class=
 
     # iterate until max_steps reached
     step_counter = 0
+    last_checkpoint = 0
     while step_counter < max_steps:
-        step_counter += rollout_steps
+        step_counter += rollout_steps * num_envs
+        print(step_counter)
+
         # rollout each agent
         for i in range(0, num_envs):
             agent, env, rollout = agents[i], environments[i], rollouts[i]
+            episode_ended = False
             # step forward n steps
             for step in range(0, rollout_steps):
-                print(step)
+                # step forward with agent i and receive new observation from the environment
                 last_obs = observations[i]
-
-                # print(last_obs)
                 action = agent.step(last_obs)
                 new_obs = env.step([action])
                 observations[i] = new_obs[0]
-            # TODO
+
+                if observations[i].step_type == sc2_env.environment.StepType.LAST:
+                    episode_ended = True
+                    # print("END!!")
+                    # print(agent.reward / agent.episodes)
+                    break
+
+            # compute and backprop the loss
+            loss = agent.compute_loss()
+            if loss is not None:
+                loss.backward()
+            torch.nn.utils.clip_grad_norm(network.parameters(), grad_norm_limit)
+
+            # start fresh rollout
+            agent.clear_rollout()
+
+            # if the episode ended, reset the agent and environment
+            if episode_ended:
+                env.reset()
+                agent.reset()
+
+        # after rolling out each agent
+        network.zero_grad()  # clear gradient buffers
+        optimizer.step()  # update weights
+
+        # save the network every 500000 steps
+        if (step_counter - last_checkpoint) > 500:
+            if not os.path.exists(output_directory):
+                os.makedirs(output_directory)
+            output_path = os.path.join(output_directory, 'network_step%s.weights' % step_counter)
+            torch.save(network.state_dict(), output_path)
+            last_checkpoint = step_counter
 
 
 if __name__ == '__main__':
