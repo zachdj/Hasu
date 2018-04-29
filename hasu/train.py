@@ -54,14 +54,19 @@ DEFAULT_ACTION_SPACE[allowed_actions] = 1
 
 
 def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_interval=50000, output_directory='../output',
-         network_class=AtariNet, screen_resolution=84, minimap_resolution=64, use_gpu=True,
+         network_class=AtariNet, screen_resolution=84, minimap_resolution=64, use_gpu=True, visualize=False,
          gamma=0.99,                # discount factor for future rewards
          value_loss_weight=0.5,     # how much weight should the value loss carry?
          entropy_weight=1e-3,       # how much weight to assign to the entropy loss (higher weight => more exploration)
-         grad_norm_limit=40,        # limit on how much we will adjust a weight per update
          learning_rate=7e-4,        # learning rate for AC network
+         grad_norm_limit=40,        # limit on how much we will adjust a weight per update
          screen_features=DEFAULT_SCREEN_FEATURES, minimap_features=DEFAULT_MINIMAP_FEATURES,
          flat_features=DEFAULT_FLAT_FEATURES, action_space=DEFAULT_ACTION_SPACE):
+
+    # hack to get pysc2 to accept flags correctly
+    from absl import flags
+    FLAGS = flags.FLAGS
+    FLAGS(['Hasu'])
 
     # create preprocessor for agents to use
     preprocessor = Preprocessor(screen_features, minimap_features, flat_features, use_gpu=use_gpu)
@@ -95,7 +100,7 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
               game_steps_per_episode=0,
               screen_size_px=(screen_resolution, screen_resolution),
               minimap_size_px=(minimap_resolution, minimap_resolution),
-              visualize=False)
+              visualize=visualize)
         environments.append(env)
         observations.append(env.reset()[0])
         rollout = {
@@ -110,8 +115,7 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
     step_counter = 0
     last_checkpoint = 0
     while step_counter < max_steps:
-        step_counter += rollout_steps * num_envs
-        print(step_counter)
+        step_counter += rollout_steps * num_envss
 
         # rollout each agent
         for i in range(0, num_envs):
@@ -167,13 +171,5 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
 
 
 if __name__ == '__main__':
-
-    # hack to get pysc2 to accept flags correctly
-    import sys
-    from absl import flags
-
-    FLAGS = flags.FLAGS
-    FLAGS(sys.argv)
-
     # entry point
     main()
