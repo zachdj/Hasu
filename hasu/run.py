@@ -8,6 +8,7 @@ from hasu.networks.AtariNet import AtariNet
 
 
 def main():
+    # TODO
     # load network
     network = AtariNet()
     network.load_state_dict(torch.load('../output/a2c_step1584.network'))

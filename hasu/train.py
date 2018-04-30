@@ -40,7 +40,6 @@ DEFAULT_FLAT_FEATURES = [
     "control_groups"    # (10, 2) tensor showing the (unit leader type and count) for each of the 10 control groups
 ]
 
-
 # TODO: default this to the entire action space
 # actions that we allow our agent to consider
 DEFAULT_ACTION_SPACE = np.zeros(524)
@@ -54,7 +53,8 @@ DEFAULT_ACTION_SPACE[allowed_actions] = 1
 
 
 def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_interval=50000, output_directory='../output',
-         network_class=AtariNet, screen_resolution=84, minimap_resolution=64, use_gpu=True, visualize=False,
+         network_class=AtariNet, bootstrap_weights=None, screen_resolution=84, minimap_resolution=64,
+         use_gpu=True, visualize=False,
          gamma=0.99,                # discount factor for future rewards
          value_loss_weight=0.5,     # how much weight should the value loss carry?
          entropy_weight=1e-3,       # how much weight to assign to the entropy loss (higher weight => more exploration)
@@ -78,6 +78,8 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
 
     # network used for generating policy and value estimations
     network = network_class(screen_size=screen_size, minimap_size=mm_size, flat_size=flat_size, num_actions=524)
+    if bootstrap_weights is not None:
+        network.load_state_dict(torch.load(bootstrap_weights))
 
     # optimization strategy for training the network
     optimizer = optim.Adam(network.parameters(), lr=learning_rate)
@@ -168,6 +170,19 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
 
     for i in range(0, num_envs):
         environments[i].close()
+
+    # save the final network
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+    output_path = os.path.join(output_directory, 'a2c_step%s.network' % step_counter)
+    torch.save(network.state_dict(), output_path)
+
+    print("Saved checkpoint at %s steps" % step_counter)
+    average_reward = 0
+    for i in range(0, num_envs):
+        average_reward += (agent.reward / agent.episodes)
+    average_reward /= num_envs
+    print("Average reward: %0.4f" % average_reward)
 
 
 if __name__ == '__main__':
