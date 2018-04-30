@@ -30,6 +30,7 @@ class A2CAgent(base_agent.BaseAgent):
                  network=_DEFAULT_NETWORK,
                  preprocessor=_DEFAULT_PREPROCESSOR,
                  action_space=np.ones(524),  # binary mask of length 524
+                 train=True,  # are we training the agent?
                  gamma=0.99,  # discount factor for future rewards
                  value_loss_weight=0.5,
                  entropy_weight=1e-3,
@@ -38,6 +39,7 @@ class A2CAgent(base_agent.BaseAgent):
         super().__init__()
         self.preprocessor = preprocessor
         self.network = network
+        self.train = train
 
         # actions that our agent is allowed to select
         self.action_space = action_space
@@ -88,6 +90,7 @@ class A2CAgent(base_agent.BaseAgent):
         action_distribution = torch.div(action_distribution, torch.sum(action_distribution))  # renormalize
 
         np_action_distribution = action_distribution.data.cpu().numpy()[0]
+        # if training, choose actions stochastically
         selected_action_id = np.random.choice(np.arange(0, len(actions.FUNCTIONS)), p=np_action_distribution)
 
         # select arguments from the argument outputs
@@ -107,11 +110,12 @@ class A2CAgent(base_agent.BaseAgent):
             # add the argument to the list of args passed to pysc2
             args.append(selected_values)
 
-        # keep track of rollout
-        self.rollout['action_mask'].append(available_actions)
-        self.rollout['policy'].append((policy_action, policy_args, selected_action_id, args))
-        self.rollout['value'].append(value)
-        self.rollout['reward'].append(np.float(obs.reward))
+        if self.train:
+            # keep track of rollout
+            self.rollout['action_mask'].append(available_actions)
+            self.rollout['policy'].append((policy_action, policy_args, selected_action_id, args))
+            self.rollout['value'].append(value)
+            self.rollout['reward'].append(np.float(obs.reward))
 
         return actions.FunctionCall(selected_action_id, args)
 
