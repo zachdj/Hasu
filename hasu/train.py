@@ -162,6 +162,7 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
         # save the network every checkpoint_interval steps
         if (step_counter - last_checkpoint) > checkpoint_interval:
             save_model(network, optimizer, step_counter, output_directory)
+            last_checkpoint = step_counter
 
             print("Saved checkpoint at %s steps" % step_counter)
             average_reward = 0
