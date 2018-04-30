@@ -55,9 +55,9 @@ def main():
                        help='Directory where network checkpoints will be saved [DEFAULT: ./output/checkpoints]')
     train.add_argument('--network_class', default=AtariNet, choices=['atari', 'fully_conv'], action=network_class_parser,
                        help='The type of network to use during training [DEFAULT: atari]')
-    train.add_argument('--bootstrap_weights', default=None,
-                       help='Training will be "bootstrapped" by loading weights from the saved network at this path'
-                            ' [DEFAULT: None]')
+    train.add_argument('--bootstrap_state', default=None,
+                       help='Training will be "bootstrapped" by loading the training state from the saved dictionary'
+                            ' at this path [DEFAULT: None]')
     train.add_argument('--screen_resolution', default=84, type=int,
                        help='Resolution at which screen observations will be received [DEFAULT: 84]')
     train.add_argument('--minimap_resolution', default=64, type=int,

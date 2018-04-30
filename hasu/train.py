@@ -53,7 +53,7 @@ DEFAULT_ACTION_SPACE[allowed_actions] = 1
 
 
 def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_interval=50000, output_directory='../output',
-         network_class=AtariNet, bootstrap_weights=None, screen_resolution=84, minimap_resolution=64,
+         network_class=AtariNet, bootstrap_state=None, screen_resolution=84, minimap_resolution=64,
          use_gpu=True, visualize=False,
          gamma=0.99,                # discount factor for future rewards
          value_loss_weight=0.5,     # how much weight should the value loss carry?
@@ -78,11 +78,18 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
 
     # network used for generating policy and value estimations
     network = network_class(screen_size=screen_size, minimap_size=mm_size, flat_size=flat_size, num_actions=524)
-    if bootstrap_weights is not None:
-        network.load_state_dict(torch.load(bootstrap_weights))
 
     # optimization strategy for training the network
     optimizer = optim.Adam(network.parameters(), lr=learning_rate)
+
+    # init step counter
+    step_counter = 0
+
+    if bootstrap_state is not None:
+        state = torch.load(bootstrap_state)
+        network.load_state_dict(state['state_dict'])
+        optimizer.load_state_dict(state['optimizer'])
+        step_counter = state['step_count']
 
     # create agents and environments in which the agents will act
     agents = []
@@ -114,7 +121,6 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
         rollouts.append(rollout)
 
     # iterate until max_steps reached
-    step_counter = 0
     last_checkpoint = 0
     while step_counter < max_steps:
         step_counter += rollout_steps * num_envs
@@ -155,11 +161,7 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
 
         # save the network every checkpoint_interval steps
         if (step_counter - last_checkpoint) > checkpoint_interval:
-            if not os.path.exists(output_directory):
-                os.makedirs(output_directory)
-            output_path = os.path.join(output_directory, 'a2c_step%s.network' % step_counter)
-            torch.save(network.state_dict(), output_path)
-            last_checkpoint = step_counter
+            save_model(network, optimizer, step_counter, output_directory)
 
             print("Saved checkpoint at %s steps" % step_counter)
             average_reward = 0
@@ -172,10 +174,7 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
         environments[i].close()
 
     # save the final network
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
-    output_path = os.path.join(output_directory, 'a2c_step%s.network' % step_counter)
-    torch.save(network.state_dict(), output_path)
+    save_model(network, optimizer, step_counter, output_directory)
 
     print("Saved checkpoint at %s steps" % step_counter)
     average_reward = 0
@@ -183,6 +182,19 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
         average_reward += (agent.reward / agent.episodes)
     average_reward /= num_envs
     print("Average reward: %0.4f" % average_reward)
+
+
+def save_model(network, optimizer, step, save_directory):
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
+    path = os.path.join(save_directory, 'a2c_step%s.state' % step)
+    # saves the model for future use/training
+    state = {
+        'step_count': step,
+        'state_dict': network.state_dict(),
+        'optimizer': optimizer.state_dict()
+    }
+    torch.save(state, path)
 
 
 if __name__ == '__main__':
