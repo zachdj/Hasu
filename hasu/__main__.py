@@ -76,7 +76,10 @@ def main():
                        help='Learning rate of neural net [DEFAULT: 7e-4]')
     train.add_argument('--grad_norm_limit', default=40, type=float,
                        help='Clip weight updates to have this norm (helps prevent exploding gradients) [DEFAULT: 40]')
-    # TODO: allow specification of observation and action space from command line
+    train.add_argument('--limit_observation_space', action='store_true',
+                       help='If set, the observation space will be a relevant subset of the full observation space.')
+    train.add_argument('--limit_action_space', action='store_true',
+                       help='If set, the agent will only consider a subset of all available actions.')
     train.set_defaults(func=training_routine)
 
     # Each subcommand gives an `args.func`.

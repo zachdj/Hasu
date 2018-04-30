@@ -17,9 +17,8 @@ import torch.optim as optim
 
 _MAP_NAME = "DefeatRoaches"
 
-
-# TODO: default these to the entire observation space
-DEFAULT_SCREEN_FEATURES = [
+# TODO: allow specification of custom observation/action space
+LIMITED_SCREEN_FEATURES = [
     features.SCREEN_FEATURES.player_relative,
     features.SCREEN_FEATURES.unit_type,
     features.SCREEN_FEATURES.selected,
@@ -28,28 +27,27 @@ DEFAULT_SCREEN_FEATURES = [
     features.SCREEN_FEATURES.unit_density,
 ]
 
-DEFAULT_MINIMAP_FEATURES = [
+LIMITED_MINIMAP_FEATURES = [
     features.MINIMAP_FEATURES.player_relative,
     features.MINIMAP_FEATURES.selected
 ]
 
-DEFAULT_FLAT_FEATURES = [
+LIMITED_FLAT_FEATURES = [
     "player",           # A (11) tensor showing general information.
     "single_select",    # A (7) tensor showing information about a selected unit.
     "multi_select",     # (n, 7) tensor with the same as single select but for all n selected units
     "control_groups"    # (10, 2) tensor showing the (unit leader type and count) for each of the 10 control groups
 ]
 
-# TODO: default this to the entire action space
 # actions that we allow our agent to consider
-DEFAULT_ACTION_SPACE = np.zeros(524)
+LIMITED_ACTION_SPACE = np.zeros(524)
 allowed_actions = np.concatenate([
     np.arange(0, 39),  # attack, move, behavior actions
     [261],  # halt  (but don't catch fire)
     [274],  # hold position
     np.arange(331, 335),  # move screen, move minimap, and patrolling
 ], axis=0)
-DEFAULT_ACTION_SPACE[allowed_actions] = 1
+LIMITED_ACTION_SPACE[allowed_actions] = 1
 
 
 def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_interval=50000, output_directory='../output',
@@ -60,13 +58,25 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
          entropy_weight=1e-3,       # how much weight to assign to the entropy loss (higher weight => more exploration)
          learning_rate=7e-4,        # learning rate for AC network
          grad_norm_limit=40,        # limit on how much we will adjust a weight per update
-         screen_features=DEFAULT_SCREEN_FEATURES, minimap_features=DEFAULT_MINIMAP_FEATURES,
-         flat_features=DEFAULT_FLAT_FEATURES, action_space=DEFAULT_ACTION_SPACE):
+         limit_observation_space=False,  # use the limited set of screen, minimap, and flat features
+         limit_action_space=False,       # use a limited set of available actions
+    ):
 
     # hack to get pysc2 to accept flags correctly
     from absl import flags
     FLAGS = flags.FLAGS
     FLAGS(['Hasu'])
+
+    # setup features to use
+    screen_features = features.SCREEN_FEATURES
+    minimap_features = features.MINIMAP_FEATURES
+    flat_features = LIMITED_FLAT_FEATURES
+    action_space = np.ones(524)
+    if limit_observation_space:
+        screen_features = LIMITED_SCREEN_FEATURES
+        minimap_features = LIMITED_MINIMAP_FEATURES
+    if limit_action_space:
+        action_space = LIMITED_ACTION_SPACE
 
     # create preprocessor for agents to use
     preprocessor = Preprocessor(screen_features, minimap_features, flat_features, use_gpu=use_gpu)
