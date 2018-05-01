@@ -131,7 +131,7 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
         rollouts.append(rollout)
 
     # iterate until max_steps reached
-    last_checkpoint = 0
+    last_checkpoint = step_counter
     while step_counter < max_steps:
         step_counter += rollout_steps * num_envs
 
