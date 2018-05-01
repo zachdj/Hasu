@@ -30,7 +30,7 @@ class A2CAgent(base_agent.BaseAgent):
                  network=_DEFAULT_NETWORK,
                  preprocessor=_DEFAULT_PREPROCESSOR,
                  action_space=np.ones(524),  # binary mask of length 524
-                 train=True,  # are we training the agent?
+                 train=False,  # are we training the agent?
                  gamma=0.99,  # discount factor for future rewards
                  value_loss_weight=0.5,
                  entropy_weight=1e-3,

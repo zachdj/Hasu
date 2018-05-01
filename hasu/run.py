@@ -47,10 +47,10 @@ allowed_actions = np.concatenate([
 LIMITED_ACTION_SPACE[allowed_actions] = 1
 
 
-def main(step_mul=8, num_episodes=1, network_class=AtariNet, saved_model='./output/lim_obs_and_action/a2c_step5024.state',
+def main(step_mul=8, num_episodes=1, network_class=AtariNet, saved_model='./trained_nets/lim_obs_and_action/a2c_step500224.state',
          screen_resolution=84, minimap_resolution=64, use_gpu=True,
-         limit_observation_space=False,  # use the limited set of screen, minimap, and flat features
-         limit_action_space=False,       # use a limited set of available actions
+         limit_observation_space=True,  # use the limited set of screen, minimap, and flat features
+         limit_action_space=True,       # use a limited set of available actions
      ):
 
     # hack to get pysc2 to accept flags correctly
@@ -85,7 +85,7 @@ def main(step_mul=8, num_episodes=1, network_class=AtariNet, saved_model='./outp
         network.load_state_dict(state['state_dict'])
 
     # create agents and sc2 environment
-    agent = A2CAgent(network, preprocessor, action_space=action_space, use_gpu=use_gpu)
+    agent = A2CAgent(network, preprocessor, action_space=action_space, use_gpu=use_gpu, train=False)
     env = sc2_env.SC2Env(
         map_name=_MAP_NAME,
         agent_race=None,

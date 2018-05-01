@@ -107,7 +107,7 @@ def main(num_envs=8, step_mul=8, max_steps=5e6, rollout_steps=16, checkpoint_int
     observations = []  # keeps track of the last observations taken from an environment
     rollouts = []
     for i in range(0, num_envs):
-        agent = A2CAgent(network, preprocessor, action_space=action_space, gamma=gamma,
+        agent = A2CAgent(network, preprocessor, action_space=action_space, gamma=gamma, train=True,
                          value_loss_weight=value_loss_weight, entropy_weight=entropy_weight, use_gpu=use_gpu)
         agents.append(agent)
         env = sc2_env.SC2Env(
