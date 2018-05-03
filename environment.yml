@@ -6,6 +6,5 @@ dependencies:
   - python=3.6
   - numpy
   - pytorch
-  - torchvision
   - pip:
     - pysc2
