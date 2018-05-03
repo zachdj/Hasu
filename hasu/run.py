@@ -3,6 +3,7 @@ The run script runs a single agent using a saved neural network for a specified 
 """
 
 import numpy as np
+import time
 
 from hasu.networks.AtariNet import AtariNet
 from hasu.utils.preprocess import Preprocessor
@@ -47,11 +48,12 @@ allowed_actions = np.concatenate([
 LIMITED_ACTION_SPACE[allowed_actions] = 1
 
 
-def main(step_mul=8, num_episodes=1, network_class=AtariNet, saved_model='./trained_nets/lim_obs_and_action/a2c_step500224.state',
-         screen_resolution=84, minimap_resolution=64, use_gpu=True,
-         limit_observation_space=True,  # use the limited set of screen, minimap, and flat features
-         limit_action_space=True,       # use a limited set of available actions
-     ):
+def main(step_mul=8, num_episodes=1, network_class=AtariNet, saved_model=None,
+         screen_resolution=84, minimap_resolution=64, use_gpu=False, visualize=False,
+         limit_observation_space=False,  # use the limited set of screen, minimap, and flat features
+         limit_action_space=False,       # use a limited set of available actions
+         limit_framerate=False,         # make the agent match the framerate of a StarCraft game
+    ):
 
     # hack to get pysc2 to accept flags correctly
     from absl import flags
@@ -95,7 +97,7 @@ def main(step_mul=8, num_episodes=1, network_class=AtariNet, saved_model='./trai
         game_steps_per_episode=0,
         screen_size_px=(screen_resolution, screen_resolution),
         minimap_size_px=(minimap_resolution, minimap_resolution),
-        visualize=True)
+        visualize=visualize)
 
     # get the initial observation
     observation = env.reset()[0]
@@ -113,6 +115,10 @@ def main(step_mul=8, num_episodes=1, network_class=AtariNet, saved_model='./trai
             episode_counter += 1
             observation = env.reset()[0]
             agent.reset()
+
+        # match framerate of a starcraft game
+        if limit_framerate:
+            time.sleep(1/30)
 
     # report results
     average_reward = agent.reward / agent.episodes

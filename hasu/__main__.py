@@ -81,6 +81,38 @@ def main():
     train.add_argument('--limit_action_space', action='store_true',
                        help='If set, the agent will only consider a subset of all available actions.')
     train.set_defaults(func=training_routine)
+    
+
+
+    # hasu run <args>
+    run = subcommands.add_parser('run', description='run an agent using the A2C algorithm', argument_default=argparse.SUPPRESS)
+    run.add_argument('--num_episodes', default=1, type=int,
+                     help='The number of episodes to run. [DEFAULT: 1]')
+    run.add_argument('--saved_model', default='./trained_nets/not_limited.state',
+                     help='.state file containing a trained network.  The network must have been trained with the same ' 
+                          'observation and action space as the current run command. '
+                          '[DEFAULT: ./trained_nets/action_obs_limited.state]')
+    run.add_argument('--step_mul', default=8, type=int,
+                     help='The number of observations to skip.  This can be used to limit an agent\'s APM to a fair '
+                          'level. A value of 20 is roughly equal to 50 apm while 5 is roughly 200 apm. [DEFAULT: 8]')
+    run.add_argument('--screen_resolution', default=84, type=int,
+                       help='Resolution at which screen observations will be received [DEFAULT: 84]')
+    run.add_argument('--minimap_resolution', default=64, type=int,
+                       help='Resolution at which minimap observations will be received [DEFAULT: 64]')
+    run.add_argument('--network_class', default=AtariNet, choices=['atari', 'fully_conv'], action=network_class_parser,
+                       help='The type of network to use during training [DEFAULT: atari]')
+    run.add_argument('--use_gpu', action='store_true',
+                       help='If set, training will be done on the GPU')
+    run.add_argument('--visualize', action='store_true',
+                       help='If set, each training environment will be rendered.')
+    run.add_argument('--limit_observation_space', action='store_true',
+                       help='If set, the observation space will be a relevant subset of the full observation space.')
+    run.add_argument('--limit_action_space', action='store_true',
+                       help='If set, the agent will only consider a subset of all available actions.')
+    run.add_argument('--limit_framerate', action='store_true',
+                       help='If set, the framerate will be limited to a realistic game speed.  This will not affect'
+                            ' the agent\'s choice of action.')
+    run.set_defaults(func=testing_routine)
 
     # Each subcommand gives an `args.func`.
     # Call that function and pass the rest of `args` as kwargs.
