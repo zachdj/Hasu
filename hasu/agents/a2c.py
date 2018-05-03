@@ -24,7 +24,7 @@ _DEFAULT_NETWORK = AtariNet()
 _DEFAULT_PREPROCESSOR = Preprocessor(features.SCREEN_FEATURES, features.MINIMAP_FEATURES,
                                      ["player", "single_select", "multi_select", "control_groups"], use_gpu=True)
 
-_STOCHASTIC_CHOICE_PCT = 0.25
+_STOCHASTIC_CHOICE_PCT = 1
 
 
 class A2CAgent(base_agent.BaseAgent):

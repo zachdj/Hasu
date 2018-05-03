@@ -69,6 +69,21 @@ To get a full list of arguments and instructions on each argument, run
 
 `(hasu) $ python -m hasu run -h`
 
+### Included networks
+
+We currently include three pre-trained networks in the repository.  Each of the networks were trained using a screen 
+resolution of 84 x 84 and a minimap resolution of 64 x 64.
+The `trained_nets/not_limited` network can be used without limiting action space or observation space (default args).
+This network was trained for 900,000 steps.
+
+The `trained_nets/action_limited` network can be used with the `--limit_action_space` argument.  
+This network was trained for 1.75 million steps with a customized selection of the action space.
+
+The `trained_nets/not_limited` network can be used with both the `--limit_observation_space` and `--limit_action_space` arguments.
+This network was trained for 2 million steps with a customized selection of the observation space and a 
+customized selection of the action space.
+
+
 ## Contributing
 
 If you'd like to contribute to this project, 
