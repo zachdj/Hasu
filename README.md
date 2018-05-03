@@ -1,15 +1,27 @@
 # Hasu
 Reinforcement learning in the StarCraft II environment.
 
-## Installation Notes
+## Overview
+Hasu is a project which seeks to replicate the results obtained by DeepMind on the StarCraft II mini-games using
+deep reinforcement learning.  We seek to produce a faithful representation of the architecture described in the paper
+using the PyTorch library.
+
+Rather than A3C (Asynchronous Advantage Actor-Critic), this repository uses A2C.  A2C is synchronous and generally
+achieves results equivalent to A3C.
+
+The code in this repository should generalize to any SC2 mini-game.  However, we have begun by focusing on the 
+"Defeat Roaches" mini-game, and thus "Defeat Roaches" is currently the only map supported by the command-line interface.
+
+## Installation Instructions
 
 You should have the full StarCraft II game installed.  Installation instructions for all platforms can be found 
 [here](https://github.com/deepmind/pysc2#get-starcraft-ii).
 Make sure to set the `SC2PATH` environment variable to the correct location.
 
-Make sure to download the 2018 Ladder Maps and the Melee maps from 
-[Blizzard](https://github.com/Blizzard/s2client-proto#map-packs) and install them using the 
-[provided instructions](https://github.com/Blizzard/s2client-proto#installing-map-and-replay-packs).
+Make sure to download the pysc2 []mini-game maps](https://github.com/deepmind/pysc2/releases/download/v1.2/mini_games.zip)
+and follow Blizzard's
+[provided instructions](https://github.com/Blizzard/s2client-proto#installing-map-and-replay-packs)
+to install them.
 
 Other dependencies are managed via [Conda](https://conda.io/docs/).  This repository includes an `environment.yml` 
 file that can be used by Conda to create a Python environment with all required dependencies.
@@ -30,32 +42,47 @@ This will create a conda environment named `hasu` with the required dependencies
 
 `conda activate hasu`
 
-## Development Notes
+## Running the Agent
 
-Dono where else to put these for now
+Hasu includes a command-line interface that can be used to run an a2c agent in training mode or "testing" mode.
+The agent can be run with any network included in the hasu.networks package.  We have currently implemented the 
+AtariNet architecture, and we hope to add the FullyConv and FullyConv LSTM architectures soon.
 
-### Running an agent
+### Training mode
 
-`python -m pysc2.bin.agent --map DefeatRoaches --agent hasu.agents.a2c.A2CAgent`
+To run an agent in training mode:
 
-### listing actions
+`(hasu) $ python -m hasu train <args>`
 
-`python -m pysc2.bin.valid_actions`
+To get a full list of arguments and instructions on each argument, run
 
-### Improvement ideas
+`(hasu) $ python -m hasu train -h`
 
-Minigame Performance
 
-- Reduce the action space to a set of interesting actions
+### Testing mode
 
-General Performance
+To run an agent in testing mode:
+
+`(hasu) $ python -m hasu run <args>`
+
+To get a full list of arguments and instructions on each argument, run
+
+`(hasu) $ python -m hasu run -h`
+
+## Contributing
+
+If you'd like to contribute to this project, 
+please contact [Zach Jones](https://github.com/zachdj) for instructions and help getting started.
+
+Following is a list of ideas that we would like to incorporate soon:
 
 - Xavier initialization for the NN weights
 - Allow the categorical feature embedder to output many dimensions (see `hasu.utils.preprocess`)
-
-
-
-
+- FullyConv LSTM architecture
+- Speed up preprocessing so network can be trained faster
+- Add support for multiple GPUS
+- Verify implementation of A2C
+- Allow map to be chosen via the CLI
 
 # Contributors
 - Zach Jones (https://github.com/zachdj)
