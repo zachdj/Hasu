@@ -42,6 +42,18 @@ Dono where else to put these for now
 
 `python -m pysc2.bin.valid_actions`
 
+### Improvement ideas
+
+Minigame Performance
+
+- Reduce the action space to a set of interesting actions
+
+General Performance
+
+- Xavier initialization for the NN weights
+- Allow the categorical feature embedder to output many dimensions (see `hasu.utils.preprocess`)
+
+
 
 
 
