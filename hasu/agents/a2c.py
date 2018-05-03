@@ -24,6 +24,8 @@ _DEFAULT_NETWORK = AtariNet()
 _DEFAULT_PREPROCESSOR = Preprocessor(features.SCREEN_FEATURES, features.MINIMAP_FEATURES,
                                      ["player", "single_select", "multi_select", "control_groups"], use_gpu=True)
 
+_STOCHASTIC_CHOICE_PCT = 0.25
+
 
 class A2CAgent(base_agent.BaseAgent):
     def __init__(self,
@@ -91,7 +93,15 @@ class A2CAgent(base_agent.BaseAgent):
 
         np_action_distribution = action_distribution.data.cpu().numpy()[0]
         # if training, choose actions stochastically
-        selected_action_id = np.random.choice(np.arange(0, len(actions.FUNCTIONS)), p=np_action_distribution)
+        if self.train:
+            selected_action_id = np.random.choice(np.arange(0, len(actions.FUNCTIONS)), p=np_action_distribution)
+        else:
+            # if testing, only choose actions stochastically some of the time
+            stochastic = np.random.random() < _STOCHASTIC_CHOICE_PCT
+            if stochastic:
+                selected_action_id = np.random.choice(np.arange(0, len(actions.FUNCTIONS)), p=np_action_distribution)
+            else:
+                selected_action_id = np.argmax(np_action_distribution)
 
         # select arguments from the argument outputs
         args = []
@@ -102,7 +112,15 @@ class A2CAgent(base_agent.BaseAgent):
                 arg_module_name = AtariNet.get_argument_module_name(arg, dim)
                 # distribution over possible argument values:
                 arg_distribution = policy_args[arg_module_name].data.cpu().numpy()[0]
-                selected_val = np.random.choice(np.arange(0, len(arg_distribution)), p=arg_distribution)
+                if self.train:
+                    selected_val = np.random.choice(np.arange(0, len(arg_distribution)), p=arg_distribution)
+                else:
+                    stochastic = np.random.random() < _STOCHASTIC_CHOICE_PCT
+                    if stochastic:
+                        selected_val = np.random.choice(np.arange(0, len(arg_distribution)), p=arg_distribution)
+                    else:
+                        selected_val = np.argmax(arg_distribution)
+
                 selected_values[dim] = selected_val
 
                 # save the distribution for the loss function
