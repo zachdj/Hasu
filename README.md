@@ -18,7 +18,7 @@ You should have the full StarCraft II game installed.  Installation instructions
 [here](https://github.com/deepmind/pysc2#get-starcraft-ii).
 Make sure to set the `SC2PATH` environment variable to the correct location.
 
-Make sure to download the pysc2 []mini-game maps](https://github.com/deepmind/pysc2/releases/download/v1.2/mini_games.zip)
+Make sure to download the pysc2 [mini-game maps](https://github.com/deepmind/pysc2/releases/download/v1.2/mini_games.zip)
 and follow Blizzard's
 [provided instructions](https://github.com/Blizzard/s2client-proto#installing-map-and-replay-packs)
 to install them.
